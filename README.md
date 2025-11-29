@@ -29,7 +29,7 @@ Departure data is fetched from the official JSON endpoint of the VRS departure m
   - **LINE** – line number
   - **TYP** – type (U, BUS, etc.)
   - **TIME** – departure time
-  - **DEL** – `!` if delayed
+  - **DELAY** – `!` if delayed
   - **DIRECTION** – direction / destination
   - **STOP** – platform / stop (e.g. “Gleis 2”, “Wiener Platz Bussteig B”)
 
