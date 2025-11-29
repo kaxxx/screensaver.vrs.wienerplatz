@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 WIENER PLATZ departure monitor screensaver.
-
-Version 0.7.2:
-- Wie 0.7.1, aber ohne Verwendung von xbmcgui.ALIGN_CENTER.
-- Eigene Alignment-Konstante ALIGN_CENTER_X (numerischer Wert).
-- Header-Rahmen mit Stern-Spalten und mittigem Text, Block zentriert.
 """
 
 import json
@@ -70,6 +65,12 @@ class ScreensaverWindow(xbmcgui.Window):
         self.header_title_center = None
         self.header_update_center = None
         self.countdown_label = None
+
+        # Sternchen für das Blinken
+        self.star_top_left = None
+        self.star_top_right = None
+        self.star_bottom_left = None
+        self.star_bottom_right = None
 
         # Tabellen-Controls
         self.col_headers = {}
@@ -186,8 +187,8 @@ class ScreensaverWindow(xbmcgui.Window):
 
         # Titelzeile: *  [zentrierter Text]  *
         title_inner_width = box_width_px - 2 * star_col_width
-        # linker Stern
-        make_label(
+        # linker Stern (oben)
+        self.star_top_left = make_label(
             rel_block_left,
             rel_header_title_y,
             star_col_width,
@@ -204,8 +205,8 @@ class ScreensaverWindow(xbmcgui.Window):
             "WIENER PLATZ DEPARTURES",
             align=ALIGN_CENTER_X,
         )
-        # rechter Stern
-        make_label(
+        # rechter Stern (oben)
+        self.star_top_right = make_label(
             rel_block_left + box_width_px - star_col_width,
             rel_header_title_y,
             star_col_width,
@@ -215,7 +216,7 @@ class ScreensaverWindow(xbmcgui.Window):
         )
 
         # Update-Zeile: *  [zentrierter Text]  *
-        make_label(
+        self.star_bottom_left = make_label(
             rel_block_left,
             rel_header_update_y,
             star_col_width,
@@ -231,7 +232,7 @@ class ScreensaverWindow(xbmcgui.Window):
             "LAST UPDATE: n/a",
             align=ALIGN_CENTER_X,
         )
-        make_label(
+        self.star_bottom_right = make_label(
             rel_block_left + box_width_px - star_col_width,
             rel_header_update_y,
             star_col_width,
@@ -322,6 +323,36 @@ class ScreensaverWindow(xbmcgui.Window):
             self.row_labels.append(row)
             row_y += row_height
 
+        # Initial: nur obere Sterne sichtbar
+        self.set_star_normal_pattern(top_active=True)
+
+    # ------------------------------------------------------------------
+    # Sternchen-Animation
+    # ------------------------------------------------------------------
+    def set_star_normal_pattern(self, top_active: bool):
+        """Sekundentakt: entweder nur die oberen oder nur die unteren Sterne anzeigen."""
+        if self.star_top_left is None:
+            return
+        self.star_top_left.setVisible(top_active)
+        self.star_top_right.setVisible(top_active)
+        self.star_bottom_left.setVisible(not top_active)
+        self.star_bottom_right.setVisible(not top_active)
+
+    def flash_stars_for_refresh(self, monitor):
+        """Kurzes schnelles Blinken aller vier Sterne beim Refresh."""
+        if self.star_top_left is None:
+            return
+        cycles = 6  # ergibt ca. 600–900 ms, je nach sleep
+        for i in range(cycles):
+            on = (i % 2 == 0)
+            self.star_top_left.setVisible(on)
+            self.star_top_right.setVisible(on)
+            self.star_bottom_left.setVisible(on)
+            self.star_bottom_right.setVisible(on)
+            # kurze Pause, dabei auf Abort achten
+            if monitor.waitForAbort(0.1):
+                break
+
     # ------------------------------------------------------------------
     # API für Hauptloop
     # ------------------------------------------------------------------
@@ -399,6 +430,9 @@ def run():
     win = ScreensaverWindow()
     win.show()
 
+    # Phase fürs Sekundentakt-Blinken der Sterne (oben/unten)
+    top_active = True
+
     try:
         while not monitor.abortRequested():
             updated = ""
@@ -411,12 +445,20 @@ def run():
             except Exception as e:
                 log(f"Unexpected error while fetching: {e}", xbmc.LOGERROR)
 
+            # Schnell-Blinken beim Refresh
+            win.flash_stars_for_refresh(monitor)
+
+            # Header + Tabelle aktualisieren
             win.set_update_text(updated)
             win.set_data(events)
 
+            # Countdown-Phase mit Sekundentakt-Blinken (oben/unten)
             remaining = interval
             while remaining > 0 and not monitor.abortRequested():
                 win.set_countdown(remaining)
+                win.set_star_normal_pattern(top_active)
+                top_active = not top_active
+
                 if monitor.waitForAbort(1):
                     break
                 remaining -= 1
