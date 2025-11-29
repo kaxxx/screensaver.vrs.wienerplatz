@@ -291,7 +291,7 @@ class ScreensaverWindow(xbmcgui.Window):
             rel_table_header_y,
             col_del_w,
             row_height,
-            "DEL",
+            "DELAY",
             align=ALIGN_CENTER_X,
         )
         self.col_headers["dir"] = make_label(
