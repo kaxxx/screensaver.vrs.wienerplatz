@@ -285,12 +285,14 @@ class ScreensaverWindow(xbmcgui.Window):
             row_height,
             "TIME",
         )
+        # DEL-Header jetzt zentriert, damit er optisch mit dem '!' in den Datenzeilen fluchtet
         self.col_headers["del"] = make_label(
             col_del_x,
             rel_table_header_y,
             col_del_w,
             row_height,
             "DEL",
+            align=ALIGN_CENTER_X,
         )
         self.col_headers["dir"] = make_label(
             col_dir_x,
@@ -316,7 +318,10 @@ class ScreensaverWindow(xbmcgui.Window):
             row["line"] = make_label(col_line_x, row_y, col_line_w, row_height, "")
             row["typ"] = make_label(col_typ_x, row_y, col_typ_w, row_height, "")
             row["time"] = make_label(col_time_x, row_y, col_time_w, row_height, "")
-            row["del"] = make_label(col_del_x, row_y, col_del_w, row_height, "")
+            # DEL-Zellen zentriert, damit '!' mittig steht
+            row["del"] = make_label(
+                col_del_x, row_y, col_del_w, row_height, "", align=ALIGN_CENTER_X
+            )
             row["dir"] = make_label(col_dir_x, row_y, col_dir_w, row_height, "")
             row["stop"] = make_label(col_stop_x, row_y, col_stop_w, row_height, "")
 
