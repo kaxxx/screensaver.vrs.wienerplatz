@@ -1,0 +1,20 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: screensaver.vrs.wienerplatz\n"
+"POT-Creation-Date: 2025-11-29 00:00+0000\n"
+"Language: de_DE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgctxt "#32000"
+msgid "General"
+msgstr "Allgemein"
+
+msgctxt "#32001"
+msgid "VRS JSON endpoint URL"
+msgstr "VRS JSON-Endpoint-URL"
+
+msgctxt "#32002"
+msgid "Refresh interval (seconds)"
+msgstr "Aktualisierungsintervall (Sekunden)"

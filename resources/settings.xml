@@ -1,0 +1,12 @@
+<settings>
+    <category label="32000">
+        <setting id="url"
+                 type="text"
+                 label="32001"
+                 default="https://www.vrs.de/index.php?eID=tx_vrsinfo_departuremonitor&i=d8f44641a2626fa3ff5a75dd50ca2560" />
+        <setting id="refresh_interval"
+                 type="number"
+                 label="32002"
+                 default="30" />
+    </category>
+</settings>
