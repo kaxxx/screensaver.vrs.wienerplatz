@@ -1,4 +1,4 @@
-# VRS Wiener Platz Screensaver (v0.7.2)
+# VRS Wiener Platz Screensaver
 
 C64-style departure monitor for **Kodi 21** (tested e.g. on LibreELEC 12.2 with Raspberry Pi 4).
 
