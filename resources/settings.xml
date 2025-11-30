@@ -1,12 +1,17 @@
 <settings>
-    <category label="32000">
-        <setting id="url"
-                 type="text"
-                 label="32001"
-                 default="https://www.vrs.de/index.php?eID=tx_vrsinfo_departuremonitor&i=d8f44641a2626fa3ff5a75dd50ca2560" />
-        <setting id="refresh_interval"
-                 type="number"
-                 label="32002"
-                 default="30" />
-    </category>
+  <category label="Settings">
+    <setting id="url"
+             type="string"
+             label="VRS JSON URL"
+             default="https://www.vrs.de/index.php?eID=tx_vrsinfo_departuremonitor&amp;i=d8f44641a2626fa3ff5a75dd50ca2560" />
+    <setting id="refresh_interval"
+             type="number"
+             label="Refresh interval (seconds)"
+             default="30" />
+    <setting id="qr_image_path"
+             type="file"
+             label="QR image path (optional)"
+             option="writeable"
+             default="" />
+  </category>
 </settings>

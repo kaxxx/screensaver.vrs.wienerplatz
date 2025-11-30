@@ -1,21 +1,14 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <addon id="screensaver.vrs.wienerplatz"
-       name="Öffi Wiener Platz Screensaver"
-       version="0.8.3"
-       provider-name="Kaxxx">
+       name="VRS Wiener Platz Screensaver"
+       version="0.9.2"
+       provider-name="Kay/ChatGPT">
   <requires>
-    <import addon="xbmc.python" version="3.0.0" />
+    <import addon="xbmc.python" version="3.0.0"/>
   </requires>
   <extension point="xbmc.ui.screensaver" library="default.py" />
   <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">C64-style Wiener Platz departure monitor screensaver.</summary>
-    <summary lang="de_DE">C64-Abfahrtsmonitor Wiener Platz als Bildschirmschoner.</summary>
-    <description lang="en_GB">Screensaver that calls the VRS JSON departure monitor endpoint, parses departures for Wiener Platz and shows them in a Commodore C64 style (black background, green text) with aligned columns and a boxed, centered header plus countdown.</description>
-    <description lang="de_DE">Bildschirmschoner, der die JSON-Schnittstelle des VRS-Abfahrtsmonitors aufruft, die Abfahrten für Wiener Platz parst und sie im Commodore-C64-Stil (schwarzer Hintergrund, grüne Schrift) mit ausgerichteten Spalten und einem zentrierten, von Sternchen eingerahmten Header inkl. Countdown darstellt.</description>
+    <summary lang="en_GB">C64-style departure monitor for Cologne Wiener Platz (VRS)</summary>
+    <description lang="en_GB">Shows live departures for Wiener Platz (VRS) in a retro C64 green-on-black table as a Kodi screensaver, plus optional WLAN QR code.</description>
     <platform>all</platform>
-    <license>GPL-3.0-or-later</license>
-    <assets>
-      <icon>resources/icon.png</icon>
-    </assets>
   </extension>
 </addon>

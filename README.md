@@ -7,6 +7,7 @@ Commodore terminal: black background, green text, fixed columns, and a header fr
 with `*` plus a countdown to the next refresh.
 
 Departure data is fetched from the official JSON endpoint of the VRS departure monitor.
+QR Code for WLAN access can be defined in settings.
 
 ---
 

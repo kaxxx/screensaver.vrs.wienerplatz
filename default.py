@@ -6,14 +6,17 @@ WIENER PLATZ departure monitor screensaver.
 import json
 import urllib.request
 import urllib.error
+import os  # benötigt für Pfadoperationen (QR-Code-Fallback)
 
 import xbmc
 import xbmcaddon
 import xbmcgui
+import xbmcvfs
 
 ADDON = xbmcaddon.Addon()
 ADDON_NAME = ADDON.getAddonInfo("name")
 ADDON_VERSION = ADDON.getAddonInfo("version")
+ADDON_PATH = ADDON.getAddonInfo("path")
 
 # numerische Alignment-Konstante für zentrierten Text (nur X-Richtung)
 ALIGN_CENTER_X = 0x00000002
@@ -27,6 +30,7 @@ def log(msg, level=xbmc.LOGINFO):
 
 
 def fetch_departures(url):
+    """Lädt die Abfahrtsdaten vom VRS-Backend."""
     req = urllib.request.Request(
         url,
         headers={
@@ -44,6 +48,7 @@ def fetch_departures(url):
 
 
 def product_short(product):
+    """Produkt zu kompaktem Typ (U, BUS, RB ...) kürzen."""
     if not product:
         return "??"
     p = product.lower()
@@ -56,26 +61,41 @@ def product_short(product):
     return product[:3].upper()
 
 
+def make_header_line(text, width_chars=48):
+    """
+    Erzeugt eine Zeile der Form:
+    ********************
+    *   TEXT         *
+    ********************
+    """
+    text = text.strip()
+    inner_width = max(0, width_chars - 2)
+    if len(text) > inner_width:
+        text = text[:inner_width]
+    pad_total = inner_width - len(text)
+    left_pad = pad_total // 2
+    right_pad = pad_total - left_pad
+    return "*" + (" " * left_pad) + text + (" " * right_pad) + "*"
+
+
 class ScreensaverWindow(xbmcgui.Window):
     def __init__(self):
         super().__init__()
         # Header Controls
         self.header_top = None
+        self.header_title = None
+        self.header_update = None
         self.header_bottom = None
-        self.header_title_center = None
-        self.header_update_center = None
         self.countdown_label = None
-
-        # Sternchen für das Blinken
-        self.star_top_left = None
-        self.star_top_right = None
-        self.star_bottom_left = None
-        self.star_bottom_right = None
 
         # Tabellen-Controls
         self.col_headers = {}
         self.row_labels = []
         self.max_rows = 10
+
+        # QR-Code Controls
+        self.qr_label = None
+        self.qr_image = None
 
         self._build_ui()
 
@@ -90,23 +110,23 @@ class ScreensaverWindow(xbmcgui.Window):
             width, height = 1280, 720
 
         text_color = "0xFF00FF00"  # C64-Grün
-        row_height = 24
+        row_height = 28  # etwas höher für font14
 
         # Hintergrund
         bg = xbmcgui.ControlImage(0, 0, width, height, "")
         self.addControl(bg)
 
         # -------------------------
-        # Horizontale Geometrie
+        # Tabellen-Geometrie
         # -------------------------
         gap_x = 10
 
         col_line_w = 80
         col_typ_w = 80
         col_time_w = 80
-        col_del_w = 60
-        col_dir_w = 360
-        col_stop_w = 260
+        col_delay_w = 90  # breit genug für "DELAY"
+        col_dir_w = 340
+        col_stop_w = 250
 
         rel_block_left = 0
         rel_inner_left = rel_block_left
@@ -114,15 +134,14 @@ class ScreensaverWindow(xbmcgui.Window):
         col_line_x = rel_inner_left
         col_typ_x = col_line_x + col_line_w + gap_x
         col_time_x = col_typ_x + col_typ_w + gap_x
-        col_del_x = col_time_x + col_time_w + gap_x
-        col_dir_x = col_del_x + col_del_w + gap_x
+        col_delay_x = col_time_x + col_time_w + gap_x
+        col_dir_x = col_delay_x + col_delay_w + gap_x
         col_stop_x = col_dir_x + col_dir_w + gap_x
 
         content_right = col_stop_x + col_stop_w
         block_width = content_right - rel_block_left
 
         box_width_px = block_width
-        star_col_width = 20  # Breite der linken/rechten Stern-Spalte in Pixeln
 
         # -------------------------
         # Vertikale Geometrie
@@ -163,7 +182,7 @@ class ScreensaverWindow(xbmcgui.Window):
                 int(w),
                 int(h),
                 text,
-                font="font13",
+                font="font14",
                 textColor=text_color,
                 alignment=align,
             )
@@ -173,9 +192,9 @@ class ScreensaverWindow(xbmcgui.Window):
         # -------------------------
         # Header-Rahmen + Text
         # -------------------------
-        stars_line = "*" * 64  # dekorative obere/untere Linie
+        header_width_chars = 48
+        stars_line = "*" * header_width_chars
 
-        # Obere Sternlinie (komplett über der Breite)
         self.header_top = make_label(
             rel_block_left,
             rel_header_top_y,
@@ -184,64 +203,22 @@ class ScreensaverWindow(xbmcgui.Window):
             stars_line,
             align=ALIGN_CENTER_X,
         )
-
-        # Titelzeile: *  [zentrierter Text]  *
-        title_inner_width = box_width_px - 2 * star_col_width
-        # linker Stern (oben)
-        self.star_top_left = make_label(
+        self.header_title = make_label(
             rel_block_left,
             rel_header_title_y,
-            star_col_width,
+            box_width_px,
             row_height,
-            "*",
+            make_header_line("WIENER PLATZ DEPARTURES", header_width_chars),
             align=ALIGN_CENTER_X,
         )
-        # zentrierter Titeltext
-        self.header_title_center = make_label(
-            rel_block_left + star_col_width,
-            rel_header_title_y,
-            title_inner_width,
-            row_height,
-            "WIENER PLATZ DEPARTURES",
-            align=ALIGN_CENTER_X,
-        )
-        # rechter Stern (oben)
-        self.star_top_right = make_label(
-            rel_block_left + box_width_px - star_col_width,
-            rel_header_title_y,
-            star_col_width,
-            row_height,
-            "*",
-            align=ALIGN_CENTER_X,
-        )
-
-        # Update-Zeile: *  [zentrierter Text]  *
-        self.star_bottom_left = make_label(
+        self.header_update = make_label(
             rel_block_left,
             rel_header_update_y,
-            star_col_width,
+            box_width_px,
             row_height,
-            "*",
+            make_header_line("LAST UPDATE: n/a", header_width_chars),
             align=ALIGN_CENTER_X,
         )
-        self.header_update_center = make_label(
-            rel_block_left + star_col_width,
-            rel_header_update_y,
-            title_inner_width,
-            row_height,
-            "LAST UPDATE: n/a",
-            align=ALIGN_CENTER_X,
-        )
-        self.star_bottom_right = make_label(
-            rel_block_left + box_width_px - star_col_width,
-            rel_header_update_y,
-            star_col_width,
-            row_height,
-            "*",
-            align=ALIGN_CENTER_X,
-        )
-
-        # Untere Sternlinie
         self.header_bottom = make_label(
             rel_block_left,
             rel_header_bottom_y,
@@ -285,11 +262,11 @@ class ScreensaverWindow(xbmcgui.Window):
             row_height,
             "TIME",
         )
-        # DEL-Header jetzt zentriert, damit er optisch mit dem '!' in den Datenzeilen fluchtet
-        self.col_headers["del"] = make_label(
-            col_del_x,
+        # DELAY-Header zentriert
+        self.col_headers["delay"] = make_label(
+            col_delay_x,
             rel_table_header_y,
-            col_del_w,
+            col_delay_w,
             row_height,
             "DELAY",
             align=ALIGN_CENTER_X,
@@ -312,15 +289,21 @@ class ScreensaverWindow(xbmcgui.Window):
         # -------------------------
         # Datenzeilen
         # -------------------------
+        self.row_labels = []
         row_y = rel_table_rows_start_y
         for _ in range(self.max_rows):
             row = {}
             row["line"] = make_label(col_line_x, row_y, col_line_w, row_height, "")
             row["typ"] = make_label(col_typ_x, row_y, col_typ_w, row_height, "")
             row["time"] = make_label(col_time_x, row_y, col_time_w, row_height, "")
-            # DEL-Zellen zentriert, damit '!' mittig steht
-            row["del"] = make_label(
-                col_del_x, row_y, col_del_w, row_height, "", align=ALIGN_CENTER_X
+            # DELAY-Zellen zentriert, damit '!' mittig steht
+            row["delay"] = make_label(
+                col_delay_x,
+                row_y,
+                col_delay_w,
+                row_height,
+                "",
+                align=ALIGN_CENTER_X,
             )
             row["dir"] = make_label(col_dir_x, row_y, col_dir_w, row_height, "")
             row["stop"] = make_label(col_stop_x, row_y, col_stop_w, row_height, "")
@@ -328,45 +311,62 @@ class ScreensaverWindow(xbmcgui.Window):
             self.row_labels.append(row)
             row_y += row_height
 
-        # Initial: nur obere Sterne sichtbar
-        self.set_star_normal_pattern(top_active=True)
+        # -------------------------
+        # QR-Code rechts oben
+        # -------------------------
+        try:
+            qr_setting = ADDON.getSetting("qr_image_path") or ""
+        except Exception:
+            qr_setting = ""
 
-    # ------------------------------------------------------------------
-    # Sternchen-Animation
-    # ------------------------------------------------------------------
-    def set_star_normal_pattern(self, top_active: bool):
-        """Sekundentakt: entweder nur die oberen oder nur die unteren Sterne anzeigen."""
-        if self.star_top_left is None:
-            return
-        self.star_top_left.setVisible(top_active)
-        self.star_top_right.setVisible(top_active)
-        self.star_bottom_left.setVisible(not top_active)
-        self.star_bottom_right.setVisible(not top_active)
+        if qr_setting:
+            qr_path = qr_setting
+        else:
+            # Fallback: mitgeliefertes QR-Bild aus resources
+            qr_path = os.path.join(ADDON_PATH, "resources", "wlan_qr.png")
+        qr_path = xbmcvfs.translatePath(qr_path)
 
-    def flash_stars_for_refresh(self, monitor):
-        """Kurzes schnelles Blinken aller vier Sterne beim Refresh."""
-        if self.star_top_left is None:
-            return
-        cycles = 6  # ergibt ca. 600–900 ms, je nach sleep
-        for i in range(cycles):
-            on = (i % 2 == 0)
-            self.star_top_left.setVisible(on)
-            self.star_top_right.setVisible(on)
-            self.star_bottom_left.setVisible(on)
-            self.star_bottom_right.setVisible(on)
-            # kurze Pause, dabei auf Abort achten
-            if monitor.waitForAbort(0.1):
-                break
+        qr_size = int(min(width, height) * 0.22)
+        qr_margin = 20
+
+        qr_x = width - qr_size - qr_margin
+        # oben rechts: etwas unter den oberen Rand, Label direkt darüber
+        qr_y = qr_margin + 28  # 28 ~ row_height
+
+        # Label "WLAN ACCESS" oberhalb des QR
+        self.qr_label = xbmcgui.ControlLabel(
+            int(qr_x),
+            int(qr_y - row_height),
+            int(qr_size),
+            int(row_height),
+            "WLAN ACCESS",
+            font="font14",
+            textColor=text_color,
+            alignment=ALIGN_CENTER_X,
+        )
+        self.addControl(self.qr_label)
+
+        # QR-Bild selbst
+        self.qr_image = xbmcgui.ControlImage(
+            int(qr_x),
+            int(qr_y),
+            int(qr_size),
+            int(qr_size),
+            qr_path,
+        )
+        self.addControl(self.qr_image)
 
     # ------------------------------------------------------------------
     # API für Hauptloop
     # ------------------------------------------------------------------
     def set_update_text(self, updated):
+        header_width_chars = 48
         if updated:
             text = f"LAST UPDATE: {updated}"
         else:
             text = "LAST UPDATE: n/a"
-        self.header_update_center.setLabel(text)
+        line = make_header_line(text, header_width_chars)
+        self.header_update.setLabel(line)
 
     def set_countdown(self, seconds_remaining):
         text = f"-- next refresh in {seconds_remaining:2d} s --"
@@ -399,14 +399,14 @@ class ScreensaverWindow(xbmcgui.Window):
                 row["line"].setLabel(line_no)
                 row["typ"].setLabel(prod)
                 row["time"].setLabel(est)
-                row["del"].setLabel(delay_flag)
+                row["delay"].setLabel(delay_flag)
                 row["dir"].setLabel(direction)
                 row["stop"].setLabel(stop)
             else:
                 row["line"].setLabel("")
                 row["typ"].setLabel("")
                 row["time"].setLabel("")
-                row["del"].setLabel("")
+                row["delay"].setLabel("")
                 row["dir"].setLabel("")
                 row["stop"].setLabel("")
 
@@ -424,7 +424,10 @@ class ScreensaverWindow(xbmcgui.Window):
 def run():
     monitor = xbmc.Monitor()
 
-    url = ADDON.getSetting("url") or "https://www.vrs.de/index.php?eID=tx_vrsinfo_departuremonitor&i=d8f44641a2626fa3ff5a75dd50ca2560"
+    url = (
+        ADDON.getSetting("url")
+        or "https://www.vrs.de/index.php?eID=tx_vrsinfo_departuremonitor&i=d8f44641a2626fa3ff5a75dd50ca2560"
+    )
     try:
         interval = int(ADDON.getSetting("refresh_interval") or "30")
     except ValueError:
@@ -434,9 +437,6 @@ def run():
 
     win = ScreensaverWindow()
     win.show()
-
-    # Phase fürs Sekundentakt-Blinken der Sterne (oben/unten)
-    top_active = True
 
     try:
         while not monitor.abortRequested():
@@ -450,20 +450,14 @@ def run():
             except Exception as e:
                 log(f"Unexpected error while fetching: {e}", xbmc.LOGERROR)
 
-            # Schnell-Blinken beim Refresh
-            win.flash_stars_for_refresh(monitor)
-
             # Header + Tabelle aktualisieren
             win.set_update_text(updated)
             win.set_data(events)
 
-            # Countdown-Phase mit Sekundentakt-Blinken (oben/unten)
+            # Countdown
             remaining = interval
             while remaining > 0 and not monitor.abortRequested():
                 win.set_countdown(remaining)
-                win.set_star_normal_pattern(top_active)
-                top_active = not top_active
-
                 if monitor.waitForAbort(1):
                     break
                 remaining -= 1
@@ -478,5 +472,5 @@ def run():
             pass
 
 
-if __name__ == "__main__":
-    run()
+# unguarded Aufruf, damit Kodi den Screensaver sicher startet
+run()
